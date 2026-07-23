@@ -1,68 +1,87 @@
-import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
+import { type NextRequest, NextResponse } from "next/server"
+import { Resend } from "resend"
+
+const TO_EMAIL = "opr.tr.ctcs@ctcs.kz"
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify SMTP configuration exists before attempting to send
-    const { SMTP_HOST, SMTP_USER, SMTP_PASSWORD } = process.env
-    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) {
-      console.error('SMTP configuration is missing. Set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD.')
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      console.error("[v0] RESEND_API_KEY is not set.")
       return NextResponse.json(
         {
           success: false,
-          message: 'Email service is not configured. Please contact the site administrator.',
+          message: "Сервис отправки писем не настроен. Обратитесь к администратору сайта.",
         },
-        { status: 500 }
+        { status: 500 },
       )
     }
 
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASSWORD,
-      },
-    })
+    const resend = new Resend(apiKey)
 
     const body = await request.json()
     const { pickup, delivery, transport, size, weight, notes, name, phone, email } = body
 
-    // Format the email content
-    const htmlContent = `
-      <h2>Новая заявка на расчёт доставки</h2>
-      
-      <h3>Маршрут транспортировки</h3>
-      <p><strong>Адрес забора:</strong> ${pickup}</p>
-      <p><strong>Адрес доставки:</strong> ${delivery}</p>
-      
-      <h3>Информация о грузе</h3>
-      <p><strong>Вид транспорта:</strong> ${transport}</p>
-      <p><strong>Размер груза:</strong> ${size}</p>
-      <p><strong>Вес груза:</strong> ${weight}</p>
-      <p><strong>Дополнительная информация:</strong> ${notes}</p>
-      
-      <h3>Контактная информация</h3>
-      <p><strong>Имя:</strong> ${name}</p>
-      <p><strong>Номер телефона:</strong> ${phone}</p>
-      <p><strong>E-mail:</strong> ${email}</p>
+    // Until a custom domain is verified in Resend, use the shared onboarding sender.
+    const fromAddress = process.env.RESEND_FROM || "CTCS Заявки <onboarding@resend.dev>"
+
+    const rows: Array<[string, string]> = [
+      ["Адрес забора", pickup],
+      ["Адрес доставки", delivery],
+      ["Вид транспорта", transport],
+      ["Размер груза", size],
+      ["Вес груза", weight],
+      ["Дополнительная информация", notes],
+      ["Имя", name],
+      ["Номер телефона", phone],
+      ["E-mail", email],
+    ]
+
+    const rowsHtml = rows
+      .filter(([, value]) => value)
+      .map(
+        ([label, value]) =>
+          `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#111;">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333;">${String(
+            value,
+          ).replace(/</g, "&lt;")}</td></tr>`,
+      )
+      .join("")
+
+    const html = `
+      <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;">
+        <h2 style="color:#111;">Новая заявка на расчёт доставки</h2>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">${rowsHtml}</table>
+      </div>
     `
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'noreply@ctcs.kz',
-      to: 'opr.tr.ctcs@ctcs.kz',
-      replyTo: email,
-      subject: `Новая заявка на расчёт доставки от ${name}`,
-      html: htmlContent,
+    const { data, error } = await resend.emails.send({
+      from: fromAddress,
+      to: [TO_EMAIL],
+      replyTo: email || undefined,
+      subject: `Новая заявка на расчёт доставки${name ? ` — ${name}` : ""}`,
+      html,
     })
 
-    return NextResponse.json({ success: true, message: 'Email sent successfully' })
-  } catch (error) {
-    console.error('Email sending error:', error)
+    if (error) {
+      console.error("[v0] Resend error:", error)
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Не удалось отправить заявку. Попробуйте позже.",
+        },
+        { status: 502 },
+      )
+    }
+
+    return NextResponse.json({ success: true, id: data?.id })
+  } catch (err) {
+    console.error("[v0] send-quote route error:", err)
     return NextResponse.json(
-      { success: false, message: 'Failed to send email' },
-      { status: 500 }
+      {
+        success: false,
+        message: "Не удалось отправить заявку. Попробуйте позже.",
+      },
+      { status: 500 },
     )
   }
 }
