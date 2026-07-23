@@ -33,10 +33,37 @@ function Field({
 
 export function QuoteForm() {
   const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setSent(true)
+    setLoading(true)
+    setError('')
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      const data = Object.fromEntries(formData)
+
+      const response = await fetch('/api/send-quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to send quote request')
+      }
+
+      setSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      console.error('Form submission error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -67,7 +94,13 @@ export function QuoteForm() {
             <form
               onSubmit={handleSubmit}
               className="rounded-2xl border border-border bg-background p-6 shadow-sm sm:p-10"
+              noValidate
             >
+              {error && (
+                <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
               <div className="space-y-8">
                 <fieldset className="space-y-4">
                   <legend className="flex items-center gap-2 font-display text-lg font-semibold text-navy">
@@ -108,10 +141,11 @@ export function QuoteForm() {
 
               <button
                 type="submit"
-                className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 font-display text-base font-medium tracking-wide text-primary-foreground transition-transform hover:scale-[1.02] sm:w-auto"
+                disabled={loading}
+                className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 font-display text-base font-medium tracking-wide text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
               >
                 <Send className="size-5" />
-                Запросить расчёт
+                {loading ? 'Отправка...' : 'Запросить расчёт'}
               </button>
             </form>
           )}
