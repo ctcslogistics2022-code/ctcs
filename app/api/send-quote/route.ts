@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 
-// Configure your email service here
-// For development, you can use Mailtrap or similar services
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-})
-
 export async function POST(request: NextRequest) {
   try {
+    // Verify SMTP configuration exists before attempting to send
+    const { SMTP_HOST, SMTP_USER, SMTP_PASSWORD } = process.env
+    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) {
+      console.error('SMTP configuration is missing. Set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD.')
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Email service is not configured. Please contact the site administrator.',
+        },
+        { status: 500 }
+      )
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASSWORD,
+      },
+    })
+
     const body = await request.json()
     const { pickup, delivery, transport, size, weight, notes, name, phone, email } = body
 

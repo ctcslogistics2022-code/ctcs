@@ -53,8 +53,10 @@ export function QuoteForm() {
         body: JSON.stringify(data),
       })
 
+      const result = await response.json().catch(() => ({}))
+
       if (!response.ok) {
-        throw new Error('Failed to send quote request')
+        throw new Error(result?.message || 'Не удалось отправить заявку. Попробуйте позже.')
       }
 
       setSent(true)
