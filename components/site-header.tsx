@@ -30,7 +30,7 @@ export function SiteHeader() {
         scrolled ? 'bg-navy/95 shadow-lg backdrop-blur' : 'bg-transparent',
       )}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-[18px] px-4 py-4 sm:px-6 lg:px-8">
         <a href="#home" className="flex items-center" aria-label="CTCS Logistics">
           <img
             src="/images/ctcs-logo-white.png"
@@ -53,11 +53,11 @@ export function SiteHeader() {
 
         <div className="hidden items-center gap-4 md:flex">
           <a
-            href="tel:+77122766101"
+            href="tel:+77000506066"
             className="flex items-center gap-2 text-sm font-medium text-white/90 transition-colors hover:text-primary"
           >
             <Phone className="size-4 text-primary" />
-            +7 (7122) 766 101
+            + 7 700 050 60 66
           </a>
           <a
             href="#contact"
